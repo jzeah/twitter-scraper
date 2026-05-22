@@ -2,21 +2,19 @@
 """
 Twitter 爬虫命令行工具
 使用方法:
-    python scripts/twitter_crawl.py --username elonmusk --type tweets
-    python scripts/twitter_crawl.py --username elonmusk --type retweets
-    python scripts/twitter_crawl.py --type bookmarks
+    python twitter_crawl.py --username elonmusk --type tweets
+    python twitter_crawl.py --username elonmusk --type retweets
+    python twitter_crawl.py --type bookmarks
 """
 import argparse
 import asyncio
-import json
-import os
 import sys
 from pathlib import Path
 
-# 添加项目根目录到 Python 路径
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# 添加当前目录到 Python 路径
+sys.path.insert(0, str(Path(__file__).parent))
 
-from src.tools.twitter_scraper import TwitterScraper
+from twitter_scraper import TwitterScraper
 
 
 async def main():
@@ -28,46 +26,37 @@ async def main():
                        help='爬取类型: tweets(发帖), retweets(转推), bookmarks(书签), all(全部)')
     parser.add_argument('--max-count', '-m', type=int, default=100,
                        help='最大爬取数量（默认 100）')
-    parser.add_argument('--headless', action='store_true',
-                       help='无头模式（不显示浏览器窗口）')
     parser.add_argument('--username-login', type=str, help='登录用户名/邮箱/手机号')
     parser.add_argument('--password', type=str, help='登录密码')
     parser.add_argument('--no-save-cookies', action='store_true',
                        help='不保存登录 cookies')
-    
+
     args = parser.parse_args()
-    
-    # 验证参数
+
     if args.type in ['retweets'] and not args.username:
         print("❌ 爬取转推需要指定 --username")
         sys.exit(1)
-    
-    if args.type == 'bookmarks' and not args.username_login:
-        print("⚠️  书签功能需要登录，请提供 --username-login 和 --password")
-    
+
     # 创建爬虫实例
-    scraper = TwitterScraper(
-        headless=args.headless or False,
-        slow_mo=100
-    )
-    
+    scraper = TwitterScraper(headless=False, slow_mo=100)
+
     try:
         # 初始化浏览器
         await scraper.init_browser()
-        
+
         # 登录
-        cookies_path = None if args.no_save_cookies else "assets/twitter_cookies.json"
+        cookies_path = None if args.no_save_cookies else "twitter_cookies.json"
         await scraper.login(
             username=args.username_login,
             password=args.password,
             cookies_path=cookies_path
         )
-        
+
         if not args.username and args.type != 'bookmarks':
             args.username = input("\n请输入要爬取的 Twitter 用户名（不含 @）: ").strip()
-        
+
         results = {}
-        
+
         # 爬取发帖
         if args.type in ['tweets', 'all']:
             print("\n" + "="*50)
@@ -78,7 +67,7 @@ async def main():
                 json_path = await scraper.save_to_json(tweets, f"{args.username}_tweets.json")
                 csv_path = await scraper.save_to_csv(tweets, f"{args.username}_tweets.csv")
                 results['tweets'] = {'count': len(tweets), 'json': json_path, 'csv': csv_path}
-        
+
         # 爬取转推
         if args.type in ['retweets', 'all']:
             print("\n" + "="*50)
@@ -88,7 +77,7 @@ async def main():
             if retweets:
                 json_path = await scraper.save_to_json(retweets, f"{args.username}_retweets.json")
                 results['retweets'] = {'count': len(retweets), 'json': json_path}
-        
+
         # 爬取书签
         if args.type in ['bookmarks', 'all']:
             if not scraper.is_logged_in:
@@ -102,7 +91,7 @@ async def main():
                     json_path = await scraper.save_to_json(bookmarks, "bookmarks.json")
                     csv_path = await scraper.save_to_csv(bookmarks, "bookmarks.csv")
                     results['bookmarks'] = {'count': len(bookmarks), 'json': json_path, 'csv': csv_path}
-        
+
         # 输出总结
         print("\n" + "="*50)
         print("🎉 爬取完成！")
@@ -114,7 +103,7 @@ async def main():
                 print(f"    - JSON: {value['json']}")
             if 'csv' in value:
                 print(f"    - CSV: {value['csv']}")
-        
+
     except KeyboardInterrupt:
         print("\n⚠️  用户中断操作")
     except Exception as e:
