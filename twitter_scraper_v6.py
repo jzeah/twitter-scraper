@@ -127,18 +127,34 @@ class TwitterScraper:
         print("登录成功后按 Enter 继续...")
         input()
         
-        # 验证登录成功
+        # 访问 Twitter，等待用户手动登录
+        print("\n" + "="*50)
+        print("📋 请在浏览器中完成登录：")
+        print("   1. 如果还没登录，请扫码或输入账号密码")
+        print("   2. 登录完成后，按 Enter 继续...")
+        print("="*50 + "\n")
+        
+        await self.page.goto("https://twitter.com/login", wait_until="domcontentloaded", timeout=30000)
+        input("按 Enter 确认登录完成后继续...")
+        
+        # 验证是否真的登录了
         await self.page.goto("https://twitter.com/home", wait_until="domcontentloaded", timeout=30000)
         await asyncio.sleep(2)
         
         if "login" not in self.page.url.lower():
-            print("✅ 登录成功！")
+            print("✅ 检测到已登录！")
             self.is_logged_in = True
             return True
         else:
-            print("❌ 登录失败，请重试")
-            self.is_logged_in = False
-            return False
+            print("⚠️ 未检测到登录，是否登录成功？")
+            choice = input("继续爬取请按 Enter，跳过请输入 n: ").strip().lower()
+            if choice == 'n':
+                print("❌ 登录失败，请重试")
+                self.is_logged_in = False
+                return False
+            else:
+                self.is_logged_in = True
+                return True
     
     async def scrape_tweets(self, username: str, max_count: int = 100) -> List[Tweet]:
         """爬取用户推文"""
