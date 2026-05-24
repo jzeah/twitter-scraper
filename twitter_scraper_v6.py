@@ -126,8 +126,19 @@ class TwitterScraper:
         print("⚠️ 请在浏览器中登录...")
         print("登录成功后按 Enter 继续...")
         input()
-        self.is_logged_in = True
-        return True
+        
+        # 验证登录成功
+        await self.page.goto("https://twitter.com/home", wait_until="domcontentloaded", timeout=30000)
+        await asyncio.sleep(2)
+        
+        if "login" not in self.page.url.lower():
+            print("✅ 登录成功！")
+            self.is_logged_in = True
+            return True
+        else:
+            print("❌ 登录失败，请重试")
+            self.is_logged_in = False
+            return False
     
     async def scrape_tweets(self, username: str, max_count: int = 100) -> List[Tweet]:
         """爬取用户推文"""
@@ -349,7 +360,11 @@ async def main():
     await scraper.init_browser()
     
     try:
-        await scraper.login()
+        logged_in = await scraper.login()
+        
+        if not logged_in:
+            print("❌ 登录失败，无法爬取")
+            return
         
         tweets = await scraper.scrape_tweets(args.username, args.max)
         
